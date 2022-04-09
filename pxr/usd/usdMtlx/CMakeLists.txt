@@ -2,7 +2,7 @@ set(PXR_PREFIX pxr/usd)
 set(PXR_PACKAGE usdMtlx)
 
 if (MATERIALX_STDLIB_DIR)
-    add_definitions(-DPXR_MATERIALX_STDLIB_DIR="${MATERIALX_STDLIB_DIR}")
+    add_definitions(-DPXR_MATERIALX_BASE_DIR="${MATERIALX_BASE_DIR}")
 endif()
 
 pxr_library(usdMtlx

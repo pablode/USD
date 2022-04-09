@@ -273,7 +273,7 @@ HdStMaterialXShaderGen::_EmitMxFunctions(
     mx::ShaderStage& mxStage) const
 {
     // Add global constants and type definitions
-    emitInclude("stdlib/" + mx::GlslShaderGenerator::TARGET
+    emitInclude("libraries/stdlib/" + mx::GlslShaderGenerator::TARGET
                 + "/lib/mx_math.glsl", mxContext, mxStage);
     emitLine("#if NUM_LIGHTS > 0", mxStage, false);
     emitLine("#define MAX_LIGHT_SOURCES NUM_LIGHTS", mxStage, false);
@@ -391,7 +391,7 @@ HdStMaterialXShaderGen::_EmitMxFunctions(
         emitSpecularEnvironment(mxContext, mxStage);
     }
     if (shadowing) {
-        emitInclude("pbrlib/" + mx::GlslShaderGenerator::TARGET 
+        emitInclude("libraries/pbrlib/" + mx::GlslShaderGenerator::TARGET
                     + "/lib/mx_shadow.glsl", mxContext, mxStage);
     }
 
@@ -399,7 +399,7 @@ HdStMaterialXShaderGen::_EmitMxFunctions(
     if (mxContext.getOptions().hwDirectionalAlbedoMethod == 
             mx::HwDirectionalAlbedoMethod::DIRECTIONAL_ALBEDO_TABLE ||
         mxContext.getOptions().hwWriteAlbedoTable) {
-        emitInclude("pbrlib/" + mx::GlslShaderGenerator::TARGET 
+        emitInclude("libraries/pbrlib/" + mx::GlslShaderGenerator::TARGET
                     + "/lib/mx_table.glsl", mxContext, mxStage);
         emitLineBreak(mxStage);
     }
@@ -408,12 +408,12 @@ HdStMaterialXShaderGen::_EmitMxFunctions(
     // depending on the vertical flip flag.
     if (mxContext.getOptions().fileTextureVerticalFlip) {
         _tokenSubstitutions[mx::ShaderGenerator::T_FILE_TRANSFORM_UV] = 
-            "stdlib/" + mx::GlslShaderGenerator::TARGET +
+            "libraries/stdlib/" + mx::GlslShaderGenerator::TARGET +
             "/lib/mx_transform_uv_vflip.glsl";
     }
     else {
         _tokenSubstitutions[mx::ShaderGenerator::T_FILE_TRANSFORM_UV] = 
-            "stdlib/" + mx::GlslShaderGenerator::TARGET + 
+            "libraries/stdlib/" + mx::GlslShaderGenerator::TARGET +
             "/lib/mx_transform_uv.glsl";
     }
 

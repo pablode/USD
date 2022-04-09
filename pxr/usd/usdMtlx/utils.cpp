@@ -185,26 +185,25 @@ _MergeSearchPaths(const NdrStringVec& stronger, const NdrStringVec& weaker)
 }
 
 static const NdrStringVec
-_ComputeStdlibSearchPaths()
+_ComputeLibrariesSearchPaths()
 {
-    // Get the MaterialX/libraries path(s)
-    // This is used to indicate the location of the MaterialX/libraries folder 
-    // if moved/changed from the path initialized in PXR_MATERIALX_STDLIB_DIR.
-    NdrStringVec stdlibSearchPaths =
-        _GetSearchPathsFromEnvVar("PXR_MTLX_STDLIB_SEARCH_PATHS");
+    // This is used to indicate the location of the MaterialX libraries folder
+    // if moved/changed from the path initialized in MATERIALX_BASE_DIR.
+    NdrStringVec librariesSearchPaths =
+        _GetSearchPathsFromEnvVar("PXR_MTLX_LIBRARIES_SEARCH_PATHS");
 
     // Add path to the MaterialX standard library discovered at build time.
-#ifdef PXR_MATERIALX_STDLIB_DIR
-    stdlibSearchPaths =
-        _MergeSearchPaths(stdlibSearchPaths, { PXR_MATERIALX_STDLIB_DIR });
+#ifdef PXR_MATERIALX_BASE_DIR
+    librariesSearchPaths =
+        _MergeSearchPaths(librariesSearchPaths, { PXR_MATERIALX_BASE_DIR });
 #endif
-    return stdlibSearchPaths;
+    return librariesSearchPaths;
 }
 
 const NdrStringVec&
 UsdMtlxStandardLibraryPaths()
 {
-    static const auto materialxLibraryPaths = _ComputeStdlibSearchPaths();
+    static const auto materialxLibraryPaths = _ComputeLibrariesSearchPaths();
     return materialxLibraryPaths;
 }
 
