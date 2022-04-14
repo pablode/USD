@@ -689,6 +689,16 @@ HdStRenderPassState::Bind(HgiCapabilities const &hgiCapabilities)
             glDisable(GL_CONSERVATIVE_RASTERIZATION_NV);
         }
     }
+
+    if (_multiSampleEnabled) {
+        glEnable(GL_MULTISAMPLE);
+    } else {
+        glDisable(GL_MULTISAMPLE);
+        // If not using GL_MULTISAMPLE, use GL_POINT_SMOOTH to render points as 
+        // circles instead of square.
+        // XXX Switch points rendering to emit quad with FS that draws circle.
+        glEnable(GL_POINT_SMOOTH);
+    }
 }
 
 void
@@ -729,6 +739,9 @@ HdStRenderPassState::Unbind(HgiCapabilities const &hgiCapabilities)
     if (hgiCapabilities.IsSet(HgiDeviceCapabilitiesBitsConservativeRaster)) {
         glDisable(GL_CONSERVATIVE_RASTERIZATION_NV);
     }
+
+    glEnable(GL_MULTISAMPLE);
+    glDisable(GL_POINT_SMOOTH);
 }
 
 void
@@ -819,6 +832,31 @@ GfVec4f _ToVec4f(const VtValue &v)
     return GfVec4f(0.0);
 }
 
+void
+HdStRenderPassState::_InitAttachmentDesc(
+    HgiAttachmentDesc &attachmentDesc,
+    int aovIndex) const
+{
+    // HdSt expresses blending per RenderPassState, where Hgi expresses
+    // blending per-attachment. Transfer pass blend state to attachments.
+    attachmentDesc.blendEnabled = _blendEnabled;
+    attachmentDesc.srcColorBlendFactor = HgiBlendFactor(_blendColorSrcFactor);
+    attachmentDesc.dstColorBlendFactor = HgiBlendFactor(_blendColorDstFactor);
+    attachmentDesc.colorBlendOp = HgiBlendOp(_blendColorOp);
+    attachmentDesc.srcAlphaBlendFactor = HgiBlendFactor(_blendAlphaSrcFactor);
+    attachmentDesc.dstAlphaBlendFactor = HgiBlendFactor(_blendAlphaDstFactor);
+    attachmentDesc.alphaBlendOp = HgiBlendOp(_blendAlphaOp);
+    attachmentDesc.blendConstantColor = _blendConstantColor;
+
+    if (!_colorMaskUseDefault) {
+        if (aovIndex > 0 && aovIndex < (int)_colorMasks.size()) {
+            attachmentDesc.colorMask = _GetColorMask(_colorMasks[aovIndex]);
+        } else if (_colorMasks.size() == 1) {
+            attachmentDesc.colorMask = _GetColorMask(_colorMasks[0]);
+        }
+    }
+}
+
 HgiGraphicsCmdsDesc
 HdStRenderPassState::MakeGraphicsCmdsDesc(
     const HdRenderIndex * const renderIndex) const
@@ -888,29 +926,15 @@ HdStRenderPassState::MakeGraphicsCmdsDesc(
         attachmentDesc.storeOp = (multiSampled && resolveMultiSample) ?
             HgiAttachmentStoreOpDontCare :
             HgiAttachmentStoreOpStore;
+        
+        // APPLE METAL: The logic above needs revisiting!
+        attachmentDesc.storeOp = HgiAttachmentStoreOpStore;
 
         if (!aov.clearValue.IsEmpty()) {
             attachmentDesc.clearValue = _ToVec4f(aov.clearValue);
         }
 
-        if (!_colorMaskUseDefault) {
-            if (_colorMasks.size() == 1) {
-                attachmentDesc.colorMask = _GetColorMask(_colorMasks[0]);
-            } else if (aovIndex < _colorMasks.size()) {
-                attachmentDesc.colorMask = _GetColorMask(_colorMasks[aovIndex]);
-            }
-        }
-
-        // HdSt expresses blending per RenderPassState, where Hgi expresses
-        // blending per-attachment. Transfer pass blend state to attachments.
-        attachmentDesc.blendEnabled = _blendEnabled;
-        attachmentDesc.srcColorBlendFactor=HgiBlendFactor(_blendColorSrcFactor);
-        attachmentDesc.dstColorBlendFactor=HgiBlendFactor(_blendColorDstFactor);
-        attachmentDesc.colorBlendOp = HgiBlendOp(_blendColorOp);
-        attachmentDesc.srcAlphaBlendFactor=HgiBlendFactor(_blendAlphaSrcFactor);
-        attachmentDesc.dstAlphaBlendFactor=HgiBlendFactor(_blendAlphaDstFactor);
-        attachmentDesc.alphaBlendOp = HgiBlendOp(_blendAlphaOp);
-        attachmentDesc.blendConstantColor = _blendConstantColor;
+        _InitAttachmentDesc(attachmentDesc, aovIndex);
 
         if (HdAovHasDepthSemantic(aov.aovName) ||
             HdAovHasDepthStencilSemantic(aov.aovName)) {
@@ -977,7 +1001,62 @@ HdStRenderPassState::_InitPrimitiveState(
     if (pipeDesc->primitiveType == HgiPrimitiveTypePatchList) {
         pipeDesc->tessellationState.primitiveIndexSize =
                             geometricShader->GetPrimitiveIndexSize();
+
+        if (geometricShader->GetUseMetalTessellation()) {
+            pipeDesc->tessellationState.patchType =
+                geometricShader->IsPrimTypeTriangles()
+                    ? HgiTessellationState::PatchType::Triangle
+                    : HgiTessellationState::PatchType::Quad;
+        }
     }
+}
+
+void
+HdStRenderPassState::_InitAttachmentState(
+    HgiGraphicsPipelineDesc * pipeDesc) const
+{
+    // For Metal we have to pass the color and depth descriptors down so
+    // that they are available when creating the Render Pipeline State for
+    // the fragment shaders.
+    HdRenderPassAovBindingVector const& aovBindings = GetAovBindings();
+
+    for (size_t aovIndex = 0; aovIndex < aovBindings.size(); ++aovIndex) {
+        HdRenderPassAovBinding const & binding = aovBindings[aovIndex];
+        if (HdAovHasDepthSemantic(binding.aovName) ||
+            HdAovHasDepthStencilSemantic(binding.aovName)) {
+            HdFormat const hdFormat = binding.renderBuffer->GetFormat();
+            HgiFormat const format = HdStHgiConversions::GetHgiFormat(hdFormat);
+            pipeDesc->depthAttachmentDesc.format = format;
+            pipeDesc->depthAttachmentDesc.usage =
+                HgiTextureUsageBitsDepthTarget;
+
+            if (HdAovHasDepthStencilSemantic(binding.aovName)) {
+                pipeDesc->depthAttachmentDesc.usage |=
+                    HgiTextureUsageBitsStencilTarget;
+            }
+        } else {
+            HdFormat const hdFormat = binding.renderBuffer->GetFormat();
+            HgiFormat const format = HdStHgiConversions::GetHgiFormat(hdFormat);
+            HgiAttachmentDesc attachment;
+            attachment.format = format;
+            _InitAttachmentDesc(attachment, aovIndex);
+            pipeDesc->colorAttachmentDescs.push_back(attachment);
+        }
+    }
+
+    // Assume all the aovs have the same multisample settings.
+    HgiSampleCount sampleCount = HgiSampleCount1;
+    if (!aovBindings.empty() && GetUseAovMultiSample()) {
+        HdStRenderBuffer *firstRenderBuffer =
+            static_cast<HdStRenderBuffer*>(aovBindings.front().renderBuffer);
+
+        if (firstRenderBuffer->IsMultiSampled()) {
+            sampleCount = HgiSampleCount(
+                firstRenderBuffer->GetMSAASampleCount());
+        }
+    }
+
+    pipeDesc->multiSampleState.sampleCount = sampleCount;
 }
 
 void
@@ -989,6 +1068,9 @@ HdStRenderPassState::_InitDepthStencilState(
         depthState->depthCompareFn =
             HdStHgiConversions::GetHgiCompareFunction(_depthFunc);
         depthState->depthWriteEnabled = GetEnableDepthMask();
+    } else {
+        depthState->depthTestEnabled = false;
+        depthState->depthWriteEnabled = false;
     }
 
     if (!GetDepthBiasUseDefault() && GetDepthBiasEnabled()) {
@@ -1017,6 +1099,8 @@ void
 HdStRenderPassState::_InitMultiSampleState(
     HgiMultiSampleState * multiSampleState) const
 {
+    multiSampleState->multiSampleEnable = _multiSampleEnabled;
+
     if (_alphaToCoverageEnabled) {
         multiSampleState->alphaToCoverageEnable = true;
         multiSampleState->alphaToOneEnable = true;
@@ -1060,13 +1144,14 @@ HdStRenderPassState::InitGraphicsPipelineDesc(
     _InitDepthStencilState(&pipeDesc->depthState);
     _InitMultiSampleState(&pipeDesc->multiSampleState);
     _InitRasterizationState(&pipeDesc->rasterizationState, geometricShader);
+    _InitAttachmentState(pipeDesc);
 }
 
 uint64_t
 HdStRenderPassState::GetGraphicsPipelineHash() const
 {
     // Hash all of the state that is captured in the pipeline state object.
-    return TfHash::Combine(
+    uint64_t hash = TfHash::Combine(
         _depthBiasUseDefault,
         _depthBiasEnabled,
         _depthBiasConstantFactor,
@@ -1098,7 +1183,24 @@ HdStRenderPassState::GetGraphicsPipelineHash() const
         _colorMaskUseDefault,
         _useMultiSampleAov,
         _conservativeRasterizationEnabled,
-        GetClipPlanes().size());
+        GetClipPlanes().size(),
+        _multiSampleEnabled);
+    
+    // Hash the aov bindings by name and format.
+    for (HdRenderPassAovBinding const& binding : GetAovBindings()) {
+        HdStRenderBuffer *renderBuffer =
+            static_cast<HdStRenderBuffer*>(binding.renderBuffer);
+        
+        const uint32_t msaaCount = renderBuffer->IsMultiSampled() ?
+            renderBuffer->GetMSAASampleCount() : 1;
+
+        hash = TfHash::Combine(hash,
+                               binding.aovName,
+                               renderBuffer->GetFormat(),
+                               msaaCount);
+    }
+    
+    return hash;
 }
 
 

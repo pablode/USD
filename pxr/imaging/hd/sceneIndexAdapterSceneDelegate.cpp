@@ -208,13 +208,13 @@ HdSceneIndexAdapterSceneDelegate::_PrimAdded(
             default:
                 break;
             };
+        }
 
-            if (it != _primCache.end()) {
-                _PrimCacheEntry & entry = (*it).second;
-                entry.primType = primType;
-            } else {
-                _primCache[indexPath].primType = primType;
-            }
+        if (it != _primCache.end()) {
+            _PrimCacheEntry & entry = (*it).second;
+            entry.primType = primType;
+        } else {
+            _primCache[indexPath].primType = primType;
         }
     }
 }
@@ -2100,6 +2100,11 @@ HdSceneIndexAdapterSceneDelegate::GetDisplayStyle(SdfPath const &id)
         if (HdBoolDataSourceHandle ds =
                 styleSchema.GetPointsShadingEnabled()) {
             result.pointsShadingEnabled = ds->GetTypedValue(0.0f);
+        }
+
+        if (HdBoolDataSourceHandle ds =
+                styleSchema.GetMaterialIsFinal()) {
+            result.materialIsFinal = ds->GetTypedValue(0.0f);
         }
     }
 
