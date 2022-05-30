@@ -1325,8 +1325,8 @@ static
 std::string
 _GetOSDCommonShaderSource()
 {
-#if defined(__APPLE__)
     std::stringstream ss;
+#if defined(__APPLE__)
     ss << "#define CONTROL_INDICES_BUFFER_INDEX 0\n"
        << "#define OSD_PATCHPARAM_BUFFER_INDEX 0\n"
        << "#define OSD_PERPATCHVERTEX_BUFFER_INDEX 0\n"
@@ -1346,7 +1346,12 @@ _GetOSDCommonShaderSource()
     ss << OpenSubdiv::Osd::MTLPatchShaderSource::GetCommonShaderSource();
     return ss.str();
 #else
-    return OpenSubdiv::Osd::GLSLPatchShaderSource::GetCommonShaderSource();
+    ss << OpenSubdiv::Osd::GLSLPatchShaderSource::GetCommonShaderSource();
+    ss << "mat4 OsdModelViewMatrix() { return mat4(1); }\n";
+    ss << "mat4 OsdProjectionMatrix() { return mat4(GetProjectionMatrix()); }\n";
+    ss << "int OsdPrimitiveIdBase() { return 0; }\n";
+    ss << "float OsdTessLevel() { return GetTessLevel(); }\n";
+    return ss.str();
 #endif
 }
 
@@ -1845,35 +1850,23 @@ HdSt_CodeGen::Compile(HdStResourceRegistry*const registry)
     if (tessControlShader.find("OsdPerPatchVertexBezier") != std::string::npos) {
         _genTCS << _GetOSDCommonShaderSource();
         _genTCS << "FORWARD_DECL(MAT4 GetWorldToViewMatrix());\n";
-        _genTCS << "FORWARD_DECL(MAT4 GetProjectionMatrix());\n";
         _genTCS << "FORWARD_DECL(float GetTessLevel());\n";
         // we apply modelview in the vertex shader, so the osd shaders doesn't need
         // to apply again.
-        _genTCS << "mat4 OsdModelViewMatrix() { return mat4(1); }\n";
-        _genTCS << "mat4 OsdProjectionMatrix() { return mat4(GetProjectionMatrix()); }\n";
-        _genTCS << "int OsdPrimitiveIdBase() { return 0; }\n";
-        _genTCS << "float OsdTessLevel() { return GetTessLevel(); }\n";
     }
     if (postTessControlShader.find("OsdPerPatchVertexBezier") != std::string::npos) {
         _osdPTCS << _GetOSDCommonShaderSource();
         _osdPTCS << "FORWARD_DECL(mat4 GetWorldToViewMatrix());\n";
-        _osdPTCS << "FORWARD_DECL(mat4 GetProjectionMatrix());\n";
         _osdPTCS << "FORWARD_DECL(float GetTessLevel());\n";
         // we apply modelview in the vertex shader, so the osd shaders doesn't need
         // to apply again.
-        _osdPTCS << "mat4 OsdModelViewMatrix() { return mat4(1); }\n";
-        _osdPTCS << "mat4 OsdProjectionMatrix() { return mat4(GetProjectionMatrix()); }\n";
-        _osdPTCS << "int OsdPrimitiveIdBase() { return 0; }\n";
-        _osdPTCS << "float OsdTessLevel() { return GetTessLevel(); }\n";
     }
     if (tessEvalShader.find("OsdPerPatchVertexBezier") != std::string::npos) {
         _genTES << _GetOSDCommonShaderSource();
-        _genTES << "mat4 OsdModelViewMatrix() { return mat4(1); }\n";
     }
     if (postTessVertexShader.find("OsdPerPatchVertexBezier") != std::string::npos
         || postTessVertexShader.find("OsdInterpolatePatchCoord") != std::string::npos) {
         _osdPTVS << _GetOSDCommonShaderSource();
-        _osdPTVS << "mat4 OsdModelViewMatrix() { return mat4(1); }\n";
     }
     if (geometryShader.find("OsdInterpolatePatchCoord") != std::string::npos) {
         _genGS << _GetOSDCommonShaderSource();
