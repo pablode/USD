@@ -1347,6 +1347,8 @@ _GetOSDCommonShaderSource()
     return ss.str();
 #else
     ss << OpenSubdiv::Osd::GLSLPatchShaderSource::GetCommonShaderSource();
+    ss << "FORWARD_DECL(MAT4 GetProjectionMatrix());\n";
+    ss << "FORWARD_DECL(float GetTessLevel());\n";
     ss << "mat4 OsdModelViewMatrix() { return mat4(1); }\n";
     ss << "mat4 OsdProjectionMatrix() { return mat4(GetProjectionMatrix()); }\n";
     ss << "int OsdPrimitiveIdBase() { return 0; }\n";
@@ -1850,14 +1852,12 @@ HdSt_CodeGen::Compile(HdStResourceRegistry*const registry)
     if (tessControlShader.find("OsdPerPatchVertexBezier") != std::string::npos) {
         _genTCS << _GetOSDCommonShaderSource();
         _genTCS << "FORWARD_DECL(MAT4 GetWorldToViewMatrix());\n";
-        _genTCS << "FORWARD_DECL(float GetTessLevel());\n";
         // we apply modelview in the vertex shader, so the osd shaders doesn't need
         // to apply again.
     }
     if (postTessControlShader.find("OsdPerPatchVertexBezier") != std::string::npos) {
         _osdPTCS << _GetOSDCommonShaderSource();
         _osdPTCS << "FORWARD_DECL(mat4 GetWorldToViewMatrix());\n";
-        _osdPTCS << "FORWARD_DECL(float GetTessLevel());\n";
         // we apply modelview in the vertex shader, so the osd shaders doesn't need
         // to apply again.
     }
