@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: 2024 Pablo Delgado Krämer
+# SPDX-License-Identifier: MIT
+
+name: Deploy Release
+
+on: [push, workflow_dispatch]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+        - name: Linux_x64
+          image: ubuntu-20.04
+        - name: macOS_x64
+          image: macos-12
+        - name: macOS_ARM
+          image: macos-14
+        - name: Windows_x64
+          image: windows-2019
+
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.image }}
+
+    steps:
+    - name: Set up packages (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake libgl1-mesa-dev libglu1-mesa-dev qtbase5-dev-tools
+
+    - name: Uninstall packages (macOS_x64)
+      if: matrix.name == 'macOS_x64'
+      run: |
+        # Build fails because system-wide packages are detected; remove them
+        brew uninstall --ignore-dependencies openexr imath libpng
+
+    # OpenImageIO detects Mono's incompatible giflib 4 instead of homebrew-installed 5+
+    - name: Remove Mono (macOS_ARM)
+      if: matrix.name == 'macOS_ARM'
+      run: sudo rm -rf /Library/Frameworks/Mono.framework
+
+    # USD depends on distutils module which has been removed in newer Python versions
+    - name: Install setuptools Python package
+      run: pip install setuptools
+
+    - name: Install NASM (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/setup-nasm@v1.5.1
+
+    - name: Check out repository
+      uses: actions/checkout@v3
+
+    - name: Set up MSVC environment (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1.13.0
+      with:
+        vsversion: 2019
+
+    - name: Build USD (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        # Build on C: drive because of out-of-disk-space errors on D:
+        python build_scripts/build_usd.py --generator "Visual Studio 16 2019" --verbose --materialx --openimageio --no-examples --no-tutorials --no-python C:/INSTALL
+        echo "USD_INSTALL_DIR=C:/INSTALL" >> $GITHUB_ENV
+
+    - name: Build USD (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        # Force build of OIIO's idiff tool (for graphical tests which we only run on Linux)
+        python build_scripts/build_usd.py --verbose --materialx --openimageio --no-examples --no-tutorials --no-python INSTALL --build-args OpenImageIO,"-DOIIO_BUILD_TOOLS=ON"
+        echo "USD_INSTALL_DIR=$PWD/INSTALL" >> $GITHUB_ENV
+
+    - name: Build USD (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        python build_scripts/build_usd.py --verbose --materialx --openimageio --no-examples --no-tutorials --no-python INSTALL
+        echo "USD_INSTALL_DIR=$PWD/INSTALL" >> $GITHUB_ENV
+
+    - name: Remove redundant files
+      working-directory: ${{ env.USD_INSTALL_DIR }}
+      run: rm -rf build src doc share resources/*
+
+    - name: Determine archive file name
+      run: |
+        echo "USD_ARCHIVE_FILE_NAME=USD24.08_${{ matrix.name }}.tar.gz" >> $GITHUB_ENV
+
+    - name: Create archive
+      working-directory: ${{ env.USD_INSTALL_DIR }}
+      run: tar -zcvf ${{ env.USD_ARCHIVE_FILE_NAME }} *
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: ${{ env.USD_INSTALL_DIR }}/${{ env.USD_ARCHIVE_FILE_NAME }}
+        retention-days: 1
+
+  deploy:
+    name: Deploy Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: build-artifacts
+
+    - name: Deploy draft release
+      uses: softprops/action-gh-release@d4e8205d7e959a9107da6396278b2f1f07af0f9b
+      with:
+        name: "Version 24.08"
+        files: |
+          *.tar.gz
+        fail_on_unmatched_files: true
+        body: "Built for [guc](https://github.com/pablode/guc)'s and [gatling](https://github.com/pablode/gatling)'s automatic workflows."
+        draft: true
