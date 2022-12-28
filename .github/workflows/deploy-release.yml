@@ -92,6 +92,9 @@ jobs:
       working-directory: ${{ env.USD_INSTALL_DIR }}
       run: rm -rf build src doc share resources/*
 
+    - name: Patch MaterialX installation
+      run: patch -p1 -u -d ${{ env.USD_INSTALL_DIR }} < .github/MaterialX_patch.diff
+
     - name: Determine archive file name
       run: |
         PYTHON_SHORT_VERSION=$(python --version 2>&1 | grep -o "[0-9]\.[0-9]\+")

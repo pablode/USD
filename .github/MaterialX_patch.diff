@@ -1,0 +1,53 @@
+diff -urB a/libraries/pbrlib/genglsl/lib/mx_environment_fis.glsl b/libraries/pbrlib/genglsl/lib/mx_environment_fis.glsl
+--- a/libraries/pbrlib/genglsl/lib/mx_environment_fis.glsl	2022-12-28 22:27:14.360485600 +0100
++++ b/libraries/pbrlib/genglsl/lib/mx_environment_fis.glsl	2022-12-28 22:27:05.381589100 +0100
+@@ -13,8 +13,8 @@
+ vec3 mx_environment_radiance(vec3 N, vec3 V, vec3 X, vec2 alpha, int distribution, FresnelData fd)
+ {
+     // Generate tangent frame.
+-    vec3 Y = normalize(cross(N, X));
+-    X = cross(Y, N);
++    X = normalize(X - dot(X, N) * N);
++    vec3 Y = cross(N, X);
+     mat3 tangentToWorld = mat3(X, Y, N);
+ 
+     // Transform the view vector to tangent space.
+diff -urB a/libraries/pbrlib/genglsl/mx_conductor_bsdf.glsl b/libraries/pbrlib/genglsl/mx_conductor_bsdf.glsl
+--- a/libraries/pbrlib/genglsl/mx_conductor_bsdf.glsl	2022-12-28 22:27:14.369483500 +0100
++++ b/libraries/pbrlib/genglsl/mx_conductor_bsdf.glsl	2022-12-28 22:27:05.391591500 +0100
+@@ -11,7 +11,8 @@
+ 
+     N = mx_forward_facing_normal(N, V);
+ 
+-    vec3 Y = normalize(cross(N, X));
++    X = normalize(X - dot(X, N) * N);
++    vec3 Y = cross(N, X);
+     vec3 H = normalize(L + V);
+ 
+     float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
+diff -urB a/libraries/pbrlib/genglsl/mx_dielectric_bsdf.glsl b/libraries/pbrlib/genglsl/mx_dielectric_bsdf.glsl
+--- a/libraries/pbrlib/genglsl/mx_dielectric_bsdf.glsl	2022-12-28 22:27:14.369483500 +0100
++++ b/libraries/pbrlib/genglsl/mx_dielectric_bsdf.glsl	2022-12-28 22:27:05.392587800 +0100
+@@ -9,7 +9,8 @@
+ 
+     N = mx_forward_facing_normal(N, V);
+ 
+-    vec3 Y = normalize(cross(N, X));
++    X = normalize(X - dot(X, N) * N);
++    vec3 Y = cross(N, X);
+     vec3 H = normalize(L + V);
+ 
+     float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
+diff -urB a/libraries/pbrlib/genglsl/mx_generalized_schlick_bsdf.glsl b/libraries/pbrlib/genglsl/mx_generalized_schlick_bsdf.glsl
+--- a/libraries/pbrlib/genglsl/mx_generalized_schlick_bsdf.glsl	2022-12-28 22:27:14.369483500 +0100
++++ b/libraries/pbrlib/genglsl/mx_generalized_schlick_bsdf.glsl	2022-12-28 22:27:05.390594600 +0100
+@@ -9,7 +9,8 @@
+ 
+     N = mx_forward_facing_normal(N, V);
+ 
+-    vec3 Y = normalize(cross(N, X));
++    X = normalize(X - dot(X, N) * N);
++    vec3 Y = cross(N, X);
+     vec3 H = normalize(L + V);
+ 
+     float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
