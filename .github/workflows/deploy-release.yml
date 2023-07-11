@@ -72,7 +72,7 @@ jobs:
       if: matrix.name == 'Windows'
       run: |
         # Build on C: drive because of out-of-disk-space errors on D:
-        python build_scripts/build_usd.py --generator "Visual Studio 16 2019" --verbose --materialx --openimageio --no-examples --no-tutorials C:/INSTALL --build-args USD,"-DPXR_PYTHON_SHEBANG=\"/usr/bin/env python3\""
+        python build_scripts/build_usd.py --generator "Visual Studio 16 2019" --verbose --materialx --openimageio --no-examples --no-tutorials C:/INSTALL --build-args USD,"-DPYSIDEUICBINARY:PATH=C:/Users/runneradmin/AppData/Roaming/Python/Python37/Scripts/pyside2-uic.exe -DPXR_PYTHON_SHEBANG=\"/usr/bin/env python3\""
         echo "USD_INSTALL_DIR=C:/INSTALL" >> $GITHUB_ENV
 
     - name: Build USD (Linux)
@@ -103,7 +103,7 @@ jobs:
     - name: Determine archive file name
       run: |
         PYTHON_SHORT_VERSION=$(python --version 2>&1 | grep -o "[0-9]\.[0-9]\+")
-        echo "USD_ARCHIVE_FILE_NAME=USD22.11_${{ matrix.name }}_x64_Python${PYTHON_SHORT_VERSION}.tar.gz" >> $GITHUB_ENV
+        echo "USD_ARCHIVE_FILE_NAME=USD23.11_${{ matrix.name }}_x64_Python${PYTHON_SHORT_VERSION}.tar.gz" >> $GITHUB_ENV
 
     - name: Create archive
       working-directory: ${{ env.USD_INSTALL_DIR }}
@@ -130,7 +130,7 @@ jobs:
     - name: Deploy draft release
       uses: softprops/action-gh-release@d4e8205d7e959a9107da6396278b2f1f07af0f9b
       with:
-        name: "Version 22.11 with MaterialX support"
+        name: "Version 23.11 with MaterialX support"
         files: |
           *.tar.gz
         fail_on_unmatched_files: true
