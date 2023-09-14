@@ -33,6 +33,12 @@ jobs:
         # Build fails because system-wide packages are detected; remove them
         brew uninstall --ignore-dependencies openexr imath libpng
 
+    - name: Set up Python (Linux and Windows)
+      if: runner.os != 'macOS'
+      uses: actions/setup-python@v4
+      with:
+          python-version: '3.${{ matrix.python-version-minor }}'
+
     - name: Set up Python (macOS)
       if: runner.os == 'macOS'
       run: |
