@@ -168,6 +168,12 @@ vec2 HorizontallyNormalizedFilmbackCoordinates()
 
 -- glsl RenderPass.ApplyClipPlanes
 
+#if defined(HD_HAS_numClipPlanes)
+#if defined(HD_HAS_clipPlanes)
+out float gl_ClipDistance[HD_NUM_clipPlanes];
+#endif
+#endif
+
 void ApplyClipPlanes(vec4 Peye)
 {
 #if defined(HD_HAS_numClipPlanes)
