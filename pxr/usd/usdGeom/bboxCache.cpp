@@ -1205,19 +1205,19 @@ UsdGeomBBoxCache::_ResolvePrim(_BBoxTask* task,
     const UsdPrim &prim = primContext.prim;
     const bool useExtentsHintForPrim = _UseExtentsHintForPrim(prim);
 
-    std::shared_ptr<UsdAttributeQuery[]> &queries = entry->queries;
+    std::shared_ptr<std::vector<UsdAttributeQuery>> &queries = entry->queries;
     if (!queries) {
         // If this cache doesn't use extents hints, we don't need the
         // corresponding query.
         const size_t numQueries =
             (useExtentsHintForPrim ? NumQueries : NumQueries - 1);
-        queries.reset(new UsdAttributeQuery[numQueries]);
+        queries = std::make_shared<std::vector<UsdAttributeQuery>>(numQueries);
     }
 
     if (useExtentsHintForPrim) {
         UsdGeomModelAPI geomModel(prim);
         const UsdAttributeQuery& extentsHintQuery =
-            _GetOrCreateExtentsHintQuery(geomModel, &queries[ExtentsHint]);
+            _GetOrCreateExtentsHintQuery(geomModel, &(*queries)[ExtentsHint]);
 
         if (_GetBBoxFromExtentsHint(geomModel, extentsHintQuery, bboxes)) {
             entry->isComplete = true;
@@ -1244,7 +1244,7 @@ UsdGeomBBoxCache::_ResolvePrim(_BBoxTask* task,
         }
         
         const UsdAttributeQuery& extentQuery =
-            _GetOrCreateExtentQuery(prim, &queries[Extent]);
+            _GetOrCreateExtentQuery(prim, &(*queries)[Extent]);
 
         UsdGeomXformable xformable(prim);
         entry->isVarying =

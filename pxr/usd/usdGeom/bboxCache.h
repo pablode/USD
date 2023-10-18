@@ -486,7 +486,7 @@ private:
 
         // Queries for attributes that need to be re-computed at each
         // time for this entry. This will be invalid for non-varying entries.
-        std::shared_ptr<UsdAttributeQuery[]> queries;
+        std::shared_ptr<std::vector<UsdAttributeQuery>> queries;
 
         // Computed purpose info of the prim that's associated with the entry.
         // This data includes the prim's actual computed purpose as well as
