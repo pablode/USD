@@ -51,14 +51,6 @@ jobs:
       if: matrix.name == 'Windows'
       uses: ilammy/setup-nasm@v1.4.0
 
-    - name: Install Python packages (Linux & Windows)
-      if: matrix.name != 'MacOS'
-      run: pip install --user PySide2 PyOpenGL
-
-    - name: Install Python packages (MacOS)
-      if: matrix.name == 'MacOS'
-      run: pip install --user PySide6 PyOpenGL
-
     - name: Check out repository
       uses: actions/checkout@v3
 
@@ -72,20 +64,19 @@ jobs:
       if: matrix.name == 'Windows'
       run: |
         # Build on C: drive because of out-of-disk-space errors on D:
-        python build_scripts/build_usd.py --generator "Visual Studio 16 2019" --verbose --materialx --openimageio --no-examples --no-tutorials C:/INSTALL --build-args USD,"-DPYSIDEUICBINARY:PATH=C:/Users/runneradmin/AppData/Roaming/Python/Python37/Scripts/pyside2-uic.exe -DPXR_PYTHON_SHEBANG=\"/usr/bin/env python3\""
+        python build_scripts/build_usd.py --generator "Visual Studio 16 2019" --verbose --no-examples --no-tutorial --no-python C:/INSTALL --build-args USD,"-DPXR_LIB_PREFIX=libpxr_"
         echo "USD_INSTALL_DIR=C:/INSTALL" >> $GITHUB_ENV
 
     - name: Build USD (Linux)
       if: matrix.name == 'Linux'
       run: |
-        # Force build of OIIO's idiff tool (for graphical tests which we only run on Linux)
-        python build_scripts/build_usd.py --verbose --materialx --openimageio --no-examples --no-tutorials INSTALL --build-args USD,"-DPYSIDEUICBINARY:PATH=/usr/lib/qt5/bin/uic" OpenImageIO,"-DOIIO_BUILD_TOOLS=ON"
+        python build_scripts/build_usd.py --verbose --no-examples --no-tutorial --no-python --use-cxx11-abi=1 INSTALL --build-args USD,"-DPXR_LIB_PREFIX=libpxr_"
         echo "USD_INSTALL_DIR=$PWD/INSTALL" >> $GITHUB_ENV
 
     - name: Build USD (MacOS)
       if: matrix.name == 'MacOS'
       run: |
-        python build_scripts/build_usd.py --verbose --materialx --openimageio --no-examples --no-tutorials INSTALL
+        python build_scripts/build_usd.py --verbose --no-examples --no-tutorial --no-python INSTALL --build-args USD,"-DPXR_LIB_PREFIX=libpxr_"
         echo "USD_INSTALL_DIR=$PWD/INSTALL" >> $GITHUB_ENV
 
     - name: Remove redundant files
@@ -95,7 +86,7 @@ jobs:
     - name: Determine archive file name
       run: |
         PYTHON_SHORT_VERSION=$(python --version 2>&1 | grep -o "[0-9]\.[0-9]\+")
-        echo "USD_ARCHIVE_FILE_NAME=USD23.08_${{ matrix.name }}_x64_Python${PYTHON_SHORT_VERSION}.tar.gz" >> $GITHUB_ENV
+        echo "USD_ARCHIVE_FILE_NAME=USD23.08_${{ matrix.name }}_x64.tar.gz" >> $GITHUB_ENV
 
     - name: Create archive
       working-directory: ${{ env.USD_INSTALL_DIR }}
@@ -122,9 +113,9 @@ jobs:
     - name: Deploy draft release
       uses: softprops/action-gh-release@d4e8205d7e959a9107da6396278b2f1f07af0f9b
       with:
-        name: "Version 23.08 with MaterialX support"
+        name: "Version 23.08 (ABI-compatible with Houdini 20.0)"
         files: |
           *.tar.gz
         fail_on_unmatched_files: true
-        body: "Built for [guc](https://github.com/pablode/guc)'s and [gatling](https://github.com/pablode/gatling)'s automatic workflows."
+        body: "Built for [gatling](https://github.com/pablode/gatling)'s automatic workflows."
         draft: true
