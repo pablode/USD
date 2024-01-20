@@ -129,6 +129,7 @@ if(PXR_ENABLE_PYTHON_SUPPORT)
     # Boost_PYTHON_LIBRARY variable so that we don't have to duplicate this
     # logic in each library's CMakeLists.txt.
     set(python_version_nodot "${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}")
+    set(Boost_LIB_PREFIX "")
     find_package(Boost
         COMPONENTS
         python${python_version_nodot}
